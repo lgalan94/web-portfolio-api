@@ -1,0 +1,194 @@
+const User = require('../models/User');
+const auth = require('../auth'); 
+const cloudinary = require('../config/cloudinary');
+const streamifier = require('streamifier');
+
+// =======================================================
+// C - REGISTER USER (POST /auth/register)
+// =======================================================
+exports.registerUser = async (req, res) => {
+  const { email, password, fullName, jobTitle, bio, profilePictureUrl, socialLinks } = req.body;
+
+  try {
+    const existingUser = await User.findOne({ email });
+
+    // ✅ Prevent multiple admin accounts (for portfolio CMS use)
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists. Only one admin user allowed.' });
+    }
+
+    // ✅ Create new user with profile fields
+    const user = await User.create({
+      email,
+      password,
+      fullName,
+      jobTitle,
+      bio,
+      profilePictureUrl,
+      socialLinks,
+    });
+
+    res.status(201).json({
+      message: 'User registered successfully! 🎉',
+      _id: user._id,
+      email: user.email,
+      isAdmin: user.isAdmin,
+      token: auth.createAccessToken(user),
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Registration failed.', error: error.message });
+  }
+};
+
+// =======================================================
+// R - LOGIN USER (POST /auth/login)
+// =======================================================
+exports.loginUser = async (req, res) => {
+  console.log('Login function is called');
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (user && (await user.matchPassword(password))) {
+      res.status(200).json({
+        message: 'Login successful! 🔒',
+        _id: user._id,
+        email: user.email,
+        isAdmin: user.isAdmin,
+        token: auth.createAccessToken(user),
+      });
+    } else {
+      res.status(401).json({ message: 'Invalid email or password.' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Login failed.', error: error.message });
+  }
+};
+
+
+// =======================================================
+// R - GET USER PROFILE (GET /users/profile)
+// =======================================================
+exports.getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+
+    if (user) {
+      res.status(200).json({
+        _id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        jobTitle: user.jobTitle,
+        bio: user.bio,
+        profilePictureUrl: user.profilePictureUrl,
+        socialLinks: user.socialLinks,
+        isAdmin: user.isAdmin,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      });
+    } else {
+      res.status(404).json({ message: 'User not found.' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve user profile.', error: error.message });
+  }
+};
+
+exports.getPublicUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select('-password -isAdmin -email'); // hide private data
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    res.status(200).json({
+      _id: user._id,
+      fullName: user.fullName,
+      jobTitle: user.jobTitle,
+      bio: user.bio,
+      profilePictureUrl: user.profilePictureUrl,
+      socialLinks: user.socialLinks,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to retrieve public user profile.',
+      error: error.message,
+    });
+  }
+};
+
+
+
+// =======================================================
+// U - UPDATE USER PROFILE (PUT /users/profile)
+// =======================================================
+exports.updateUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    // Upload new profile picture if provided
+    if (req.file) {
+      // Delete old profile picture from Cloudinary
+      if (user.profilePictureUrlPublicId) {
+        await cloudinary.uploader.destroy(user.profilePictureUrlPublicId);
+      }
+
+      // Upload new picture
+      const uploadFromBuffer = () => {
+        return new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              folder: 'user_profiles',
+              transformation: [{ width: 500, height: 500, crop: 'fill' }],
+            },
+            (error, result) => {
+              if (result) resolve(result);
+              else reject(error);
+            }
+          );
+          streamifier.createReadStream(req.file.buffer).pipe(stream);
+        });
+      };
+
+      const uploadResult = await uploadFromBuffer();
+      req.body.profilePictureUrl = uploadResult.secure_url;
+      req.body.profilePictureUrlPublicId = uploadResult.public_id;
+    }
+
+    // Update allowed fields
+    const fields = ['email', 'password', 'fullName', 'jobTitle', 'bio', 'profilePictureUrl', 'profilePictureUrlPublicId', 'socialLinks'];
+    fields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        user[field] = req.body[field];
+      }
+    });
+
+    const updatedUser = await user.save();
+
+    res.status(200).json({
+      message: 'Profile updated successfully! 👤',
+      user: {
+        _id: updatedUser._id,
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        jobTitle: updatedUser.jobTitle,
+        bio: updatedUser.bio,
+        profilePictureUrl: updatedUser.profilePictureUrl,
+        socialLinks: updatedUser.socialLinks,
+        isAdmin: updatedUser.isAdmin,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
+      },
+      token: auth.createAccessToken(updatedUser),
+    });
+  } catch (error) {
+    console.error('❌ Error updating profile:', error);
+    res.status(500).json({ message: 'Failed to update profile.', error: error.message });
+  }
+};
