@@ -29,13 +29,13 @@ const projectSchema = new Schema({
     liveUrl: {
         type: String,
         trim: true,
-        default: null,
+        default: "google.com",
     },
     // Optional Repository URL
     repoUrl: {
         type: String,
         trim: true,
-        default: null,
+        default: "google.com",
     },
     // 💡 NEW: Link this project to the admin user who created it
     owner: {

@@ -1,62 +1,58 @@
 const jwt = require('jsonwebtoken');
 const secret = process.env.SECRET_KEY;
 
+// 🔑 Create access token with 20-minute expiry
 module.exports.createAccessToken = (user) => {
-	const data = {
-		id: user._id,
-		isAdmin : user.isAdmin,
-		email : user.email
-	}
+    const data = {
+        id: user._id,
+        isAdmin: user.isAdmin,
+        email: user.email
+    };
 
-		return jwt.sign(data, secret, {});
+    // Add expiresIn: 20 minutes
+    return jwt.sign(data, secret, { expiresIn: '20m' });
+};
 
-}
+// 🔐 Verify JWT middleware
+module.exports.verify = (req, res, next) => {
+    const authHeader = req.headers.authorization;
 
-
-/* module.exports.verify = (request, response, next) => {
-	let token = request.headers.authorization;
-
-	if(token !== undefined) {
-		token = token.slice(7, token.length);
-
-		return jwt.verify(token, secret, (error, data) => {
-			if(!error) {
-				next();
-			} else {
-				return response.send(false);
-			}
-		})
-	} else {
-		return response.send(false)
-	}
-} */
-
-
-module.exports.verify = (request, response, next) => {
-    let token = request.headers.authorization;
-
-    if(token !== undefined) {
-        token = token.slice(7, token.length);
-
-        return jwt.verify(token, secret, (error, data) => {
-            if(!error) {
-                // 💡 CRITICAL FIX: Attach the decoded data (user info) to the request object
-                request.user = data; 
-                next();
-            } else {
-                // Optionally send a 401 Unauthorized status instead of just 'false'
-                return response.status(401).send({ message: 'Authorization failed or token expired.' }); 
-            }
-        })
-    } else {
-        // No token provided
-        return response.status(401).send({ message: 'No authentication token provided.' });
+    if (!authHeader) {
+        return res.status(401).json({ message: 'No authentication token provided.' });
     }
-}
 
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
 
+    jwt.verify(token, secret, (err, decoded) => {
+        if (err) {
+            // Token expired or invalid
+            return res.status(401).json({ message: 'Authorization failed or token expired.' });
+        }
 
+        // Attach user info from token to the request object
+        req.user = decoded;
+        next();
+    });
+};
+
+// 🔒 Admin-only middleware
+module.exports.adminOnly = (req, res, next) => {
+    if (!req.user || req.user.isAdmin !== true) {
+        return res.status(403).json({ message: 'Access denied: Admins only' });
+    }
+    next();
+};
+
+// 📝 Decode token without verifying (optional)
 module.exports.decode = (token) => {
-	token = token.slice(7, token.length);
-	return jwt.decode(token, {complete : true}).payload
-}
+    token = token.startsWith('Bearer ') ? token.slice(7) : token;
+    return jwt.decode(token, { complete: true }).payload;
+};
+
+// ⚡ Optional helper to check if token is expired
+module.exports.isTokenExpired = (token) => {
+    const payload = this.decode(token);
+    if (!payload || !payload.exp) return true;
+    const now = Math.floor(Date.now() / 1000); // current time in seconds
+    return payload.exp < now; // true if expired
+};

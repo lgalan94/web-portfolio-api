@@ -1,7 +1,7 @@
 const Skills = require('../models/Skills.js');
 
 module.exports.AddSkill = async (req, res) => {
-    const { name, icon } = req.body;
+    const { name, icon, category } = req.body;
 
     if (!name || name.trim() === "") {
         return res.status(400).send({ message: "Skill name is required." });
@@ -18,7 +18,8 @@ module.exports.AddSkill = async (req, res) => {
 
         let newSkill = new Skills({
             name: name.toUpperCase().trim(),
-            icon: icon.trim()
+            icon: icon.trim(),
+            category: category.trim()
         });
 
         const savedSkill = await newSkill.save();

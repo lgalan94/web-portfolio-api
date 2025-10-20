@@ -11,6 +11,11 @@ const skillsSchema = new mongoose.Schema({
     required: false,
     default: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg'
   },
+  category: {
+    type: String,
+    required: true,
+    default: 'other'
+  },
   createdOn: {
     type: Date,
     default: () => new Date()

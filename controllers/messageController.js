@@ -45,11 +45,7 @@ exports.getAllMessages = async (req, res) => {
     // or sort by receivedAt descending to show newest first.
     const messages = await Message.find().sort({ receivedAt: -1 });
 
-    res.status(200).json({
-      message: 'Messages retrieved successfully.',
-      count: messages.length,
-      messages: messages,
-    });
+    res.status(200).json(messages);
   } catch (error) {
     res.status(500).json({
       message: 'Failed to retrieve messages.',

@@ -2,10 +2,24 @@ const Project = require('../models/Project');
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
 
-const processTags = (tagsString) => {
-    return tagsString
-        ? tagsString.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
-        : [];
+const processTags = (tagsInput) => {
+  if (!tagsInput) return [];
+
+  // If it's already an array (e.g. ["React", "Node.js"])
+  if (Array.isArray(tagsInput)) {
+    return tagsInput.map(tag => String(tag).trim()).filter(tag => tag.length > 0);
+  }
+
+  // If it's a plain string (e.g. "React, Node.js")
+  if (typeof tagsInput === 'string') {
+    return tagsInput
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0);
+  }
+
+  // If it's something else (e.g. object or number), return empty array safely
+  return [];
 };
 
 exports.createProject = async (req, res) => {
@@ -74,11 +88,7 @@ exports.getAllProjects = async (req, res) => {
     // ... (logic remains completely unchanged)
     try {
         const projects = await Project.find().sort({ createdAt: -1 });
-        res.status(200).json({
-            message: 'Projects retrieved successfully.',
-            count: projects.length,
-            projects,
-        });
+        res.status(200).json(projects);
     } catch (error) {
         res.status(500).json({
             message: 'Failed to retrieve projects.',
@@ -115,54 +125,45 @@ exports.getProjectById = async (req, res) => {
 
 exports.updateProject = async (req, res) => {
   try {
-    const updateData = { ...req.body };
-
-    if (updateData.tags) {
-      updateData.tags = processTags(updateData.tags);
+    const project = await Project.findOne({ _id: req.params.id });
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found or unauthorized.' });
     }
 
-    updateData.updatedAt = Date.now();
+    // Update basic fields
+    if (req.body.title) project.title = req.body.title;
+    if (req.body.description) project.description = req.body.description;
+    if (req.body.liveUrl) project.liveUrl = req.body.liveUrl;
+    if (req.body.repoUrl) project.repoUrl = req.body.repoUrl;
 
-    // Handle image upload if provided
+    // ✅ Handle tags robustly
+    if (req.body.tags) {
+      project.tags = processTags(req.body.tags);
+    }
+
+    project.updatedAt = Date.now();
+
+    // ✅ Handle new image upload (replace old)
     if (req.file) {
-      const project = await Project.findOne({ _id: req.params.id, owner: req.user.id });
-      if (!project) {
-        return res.status(404).json({ message: 'Project not found or unauthorized to update.' });
-      }
-
-      // Delete old image from Cloudinary
       if (project.imagePublicId) {
         await cloudinary.uploader.destroy(project.imagePublicId);
       }
 
-      // Upload new image from buffer
       const uploadFromBuffer = () =>
         new Promise((resolve, reject) => {
           const stream = cloudinary.uploader.upload_stream(
             { folder: 'portfolio_projects' },
-            (error, result) => {
-              if (result) resolve(result);
-              else reject(error);
-            }
+            (error, result) => (result ? resolve(result) : reject(error))
           );
           streamifier.createReadStream(req.file.buffer).pipe(stream);
         });
 
       const uploadResult = await uploadFromBuffer();
-      updateData.imageUrl = uploadResult.secure_url;
-      updateData.imagePublicId = uploadResult.public_id;
+      project.imageUrl = uploadResult.secure_url;
+      project.imagePublicId = uploadResult.public_id;
     }
 
-    // Update project
-    const updatedProject = await Project.findOneAndUpdate(
-      { _id: req.params.id, owner: req.user.id },
-      updateData,
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedProject) {
-      return res.status(404).json({ message: 'Project not found or unauthorized to update.' });
-    }
+    const updatedProject = await project.save();
 
     res.status(200).json({
       message: 'Project updated successfully! ✏️',
@@ -176,6 +177,8 @@ exports.updateProject = async (req, res) => {
     });
   }
 };
+
+
 
 // =======================================================
 // D - DELETE Project (DELETE /api/projects/:id) - SECURED

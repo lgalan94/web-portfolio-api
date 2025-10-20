@@ -44,7 +44,6 @@ exports.registerUser = async (req, res) => {
 // R - LOGIN USER (POST /auth/login)
 // =======================================================
 exports.loginUser = async (req, res) => {
-  console.log('Login function is called');
   const { email, password } = req.body;
 
   try {
@@ -132,14 +131,22 @@ exports.updateUserProfile = async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found.' });
 
-    // Upload new profile picture if provided
+    // ✅ Parse socialLinks if it's sent as a JSON string
+    if (typeof req.body.socialLinks === 'string') {
+      try {
+        req.body.socialLinks = JSON.parse(req.body.socialLinks);
+      } catch (err) {
+        console.error('Invalid socialLinks JSON:', err);
+        return res.status(400).json({ message: 'Invalid socialLinks format.' });
+      }
+    }
+
+    // ✅ Upload new profile picture if provided
     if (req.file) {
-      // Delete old profile picture from Cloudinary
       if (user.profilePictureUrlPublicId) {
         await cloudinary.uploader.destroy(user.profilePictureUrlPublicId);
       }
 
-      // Upload new picture
       const uploadFromBuffer = () => {
         return new Promise((resolve, reject) => {
           const stream = cloudinary.uploader.upload_stream(
@@ -161,9 +168,19 @@ exports.updateUserProfile = async (req, res) => {
       req.body.profilePictureUrlPublicId = uploadResult.public_id;
     }
 
-    // Update allowed fields
-    const fields = ['email', 'password', 'fullName', 'jobTitle', 'bio', 'profilePictureUrl', 'profilePictureUrlPublicId', 'socialLinks'];
-    fields.forEach(field => {
+    // ✅ Update only allowed fields
+    const fields = [
+      'email',
+      'password',
+      'fullName',
+      'jobTitle',
+      'bio',
+      'profilePictureUrl',
+      'profilePictureUrlPublicId',
+      'socialLinks'
+    ];
+
+    fields.forEach((field) => {
       if (req.body[field] !== undefined) {
         user[field] = req.body[field];
       }
@@ -189,6 +206,9 @@ exports.updateUserProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error updating profile:', error);
-    res.status(500).json({ message: 'Failed to update profile.', error: error.message });
+    res.status(500).json({
+      message: 'Failed to update profile.',
+      error: error.message,
+    });
   }
 };
