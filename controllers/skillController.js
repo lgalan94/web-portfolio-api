@@ -40,6 +40,31 @@ module.exports.AddSkill = async (req, res) => {
 };
 
 module.exports.RetrieveSkills = async (req, res) => {
+  try {
+    const result = await Skills.find({}); // Flat array from MongoDB
+
+    // Group by category
+    const groupedSkills = result.reduce((acc, skill) => {
+      const category = skill.category || 'Other';
+      if (!acc[category]) acc[category] = [];
+      acc[category].push({ name: skill.name, icon: skill.icon });
+      return acc;
+    }, {});
+
+    return res.status(200).json(groupedSkills);
+
+  } catch (error) {
+    console.error("Error retrieving skills:", error);
+    return res.status(500).send({ 
+      message: "An internal server error occurred during skill retrieval.",
+      error: error.message 
+    });
+  }
+};
+
+//admin - cms
+
+module.exports.GetSkills = async (req, res) => {
     try {
         const result = await Skills.find({});
         return res.status(200).json(result); 

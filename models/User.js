@@ -35,6 +35,10 @@ const userSchema = new Schema({
     type: String,
     required: true,
   },
+  shortBio: {
+    type: String, 
+    required: true
+  },
   profilePictureUrl: {
     type: String,
     default: 'https://via.placeholder.com/150',

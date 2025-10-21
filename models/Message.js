@@ -37,12 +37,7 @@ const messageSchema = new mongoose.Schema({
     enum: ['unread', 'read', 'archived', 'deleted'],
     default: 'unread',
   },
-  // Optional: Reference to a project if the inquiry is about a specific one
-  // projectId: {
-  //   type: mongoose.Schema.Types.ObjectId,
-  //   ref: 'Project',
-  //   default: null
-  // }
+  
 }, {
   timestamps: true // Adds createdAt and updatedAt fields automatically
 });

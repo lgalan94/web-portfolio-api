@@ -7,9 +7,9 @@ const multer = require('multer');
 // Use memory storage for Cloudinary uploads
 const upload = multer({ storage: multer.memoryStorage() });
 
+router.get('/public-profile', authController.getPublicUserProfile);
 router.post('/register', authController.registerUser);    
 router.post('/login', authController.loginUser);          
-router.get('/profile/:id', authController.getPublicUserProfile);
 
 router.route('/profile')
     .get(auth.verify, authController.getUserProfile)

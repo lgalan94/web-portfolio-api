@@ -7,7 +7,7 @@ const streamifier = require('streamifier');
 // C - REGISTER USER (POST /auth/register)
 // =======================================================
 exports.registerUser = async (req, res) => {
-  const { email, password, fullName, jobTitle, bio, profilePictureUrl, socialLinks } = req.body;
+  const { email, password, fullName, jobTitle, bio, shortBio, profilePictureUrl, socialLinks } = req.body;
 
   try {
     const existingUser = await User.findOne({ email });
@@ -24,6 +24,7 @@ exports.registerUser = async (req, res) => {
       fullName,
       jobTitle,
       bio,
+      shortBio,
       profilePictureUrl,
       socialLinks,
     });
@@ -80,6 +81,7 @@ exports.getUserProfile = async (req, res) => {
         fullName: user.fullName,
         jobTitle: user.jobTitle,
         bio: user.bio,
+        shortBio: user.shortBio,
         profilePictureUrl: user.profilePictureUrl,
         socialLinks: user.socialLinks,
         isAdmin: user.isAdmin,
@@ -96,30 +98,18 @@ exports.getUserProfile = async (req, res) => {
 
 exports.getPublicUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
-      .select('-password -isAdmin -email'); // hide private data
+    const user = await User.findOne({ isAdmin: true })
+      .select('fullName jobTitle bio shortBio profilePictureUrl socialLinks');
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    res.status(200).json({
-      _id: user._id,
-      fullName: user.fullName,
-      jobTitle: user.jobTitle,
-      bio: user.bio,
-      profilePictureUrl: user.profilePictureUrl,
-      socialLinks: user.socialLinks,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: 'Failed to retrieve public user profile.',
-      error: error.message,
-    });
+    res.json(user); 
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 
 
@@ -175,6 +165,7 @@ exports.updateUserProfile = async (req, res) => {
       'fullName',
       'jobTitle',
       'bio',
+      'shortBio',
       'profilePictureUrl',
       'profilePictureUrlPublicId',
       'socialLinks'
@@ -196,6 +187,7 @@ exports.updateUserProfile = async (req, res) => {
         fullName: updatedUser.fullName,
         jobTitle: updatedUser.jobTitle,
         bio: updatedUser.bio,
+        shortBio: updatedUser.shortBio,
         profilePictureUrl: updatedUser.profilePictureUrl,
         socialLinks: updatedUser.socialLinks,
         isAdmin: updatedUser.isAdmin,

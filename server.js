@@ -45,7 +45,7 @@ const authLimiter = rateLimit({
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // 200 requests per 15 min/IP
+  max: 1000, // 200 requests per 15 min/IP
   message: 'Too many requests from this IP. Please slow down.',
 });
 
@@ -55,6 +55,7 @@ const apiLimiter = rateLimit({
 const messageRoutes = require('./routers/messageRoutes');
 const skillRoutes = require('./routers/skillRoutes');
 const projectRoutes = require('./routers/projectRoutes');
+const employmentRoutes = require('./routers/employmentRoutes');
 // 🟢 Combined route: handles auth, profile & public portfolio
 const userRoutes = require('./routers/userRoutes');
 
@@ -72,7 +73,7 @@ app.use('/api', apiLimiter, userRoutes);
 app.use('/api/skills', apiLimiter, skillRoutes);
 app.use('/api/projects', apiLimiter, projectRoutes);
 app.use('/api/messages', apiLimiter, messageRoutes);
-
+app.use('/api/employment', apiLimiter, employmentRoutes);
 // =======================================================
 // 🚀 START SERVER
 // =======================================================
