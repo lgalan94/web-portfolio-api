@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { Schema } = mongoose; // Destructuring Schema for cleaner code
+const { Schema } = mongoose;
 
 const projectSchema = new Schema({
     title: {
@@ -7,49 +7,58 @@ const projectSchema = new Schema({
         required: true,
         trim: true,
     },
-    // Tags (Stored as an array of strings, converted from the comma-separated input)
+
+    // Tags (Stored as an array of strings)
     tags: {
         type: [String],
-        required: true, 
+        required: true,
     },
-    // Full Description (Required)
+
+    // Project Category (e.g., Fullstack, Landing, Frontend)
+    category: {
+        type: String,
+        enum: ['Fullstack', 'Frontend', 'Backend', 'Landing', 'UI/UX', 'Other'],
+        required: true,
+        default: 'Fullstack', // You can change this default as needed
+    },
+
+    // Full Description
     description: {
         type: String,
         required: true,
     },
-    // Image URL (The 'https://picsum.photos/600/400' field)
+
+    // Image URL
     imageUrl: {
         type: String,
         required: true,
     },
+
     imagePublicId: { 
         type: String, 
-        default: null  
-    },        
+        default: null,
+    },
+
     liveUrl: {
         type: String,
         trim: true,
-        default: "google.com",
+        default: "https://google.com",
     },
-    // Optional Repository URL
+
     repoUrl: {
         type: String,
         trim: true,
-        default: "google.com",
+        default: "https://google.com",
     },
-    // 💡 NEW: Link this project to the admin user who created it
+
+    // Reference to the admin/user who created this project
     owner: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // References the 'User' model (your admin)
+        ref: 'User',
         required: true,
     },
 }, {
-    // 💡 Simplification: Using Mongoose built-in timestamps is cleaner
-    // and automatically handles createdAt and updatedAt fields.
-    timestamps: true 
+    timestamps: true, // Automatically adds createdAt & updatedAt
 });
-
-// If you choose to use the standard `{ timestamps: true }` option, 
-// you can remove the manual `createdAt` and `updatedAt` fields from the schema definition above.
 
 module.exports = mongoose.model('Project', projectSchema);
