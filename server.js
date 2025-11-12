@@ -58,6 +58,7 @@ const projectRoutes = require('./routers/projectRoutes');
 const employmentRoutes = require('./routers/employmentRoutes');
 // 🟢 Combined route: handles auth, profile & public portfolio
 const userRoutes = require('./routers/userRoutes');
+const jobRoutes = require('./routers/jobRoutes');
 
 // =======================================================
 // 🚏 ROUTE MOUNTING
@@ -74,6 +75,7 @@ app.use('/api/skills', apiLimiter, skillRoutes);
 app.use('/api/projects', apiLimiter, projectRoutes);
 app.use('/api/messages', apiLimiter, messageRoutes);
 app.use('/api/employment', apiLimiter, employmentRoutes);
+app.use('/api/jobs', apiLimiter, jobRoutes);
 // =======================================================
 // 🚀 START SERVER
 // =======================================================

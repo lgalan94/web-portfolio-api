@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const auth = require('../auth'); 
+const auth = require('../auth');
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
 
@@ -11,13 +11,10 @@ exports.registerUser = async (req, res) => {
 
   try {
     const existingUser = await User.findOne({ email });
-
-    // ✅ Prevent multiple admin accounts (for portfolio CMS use)
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists. Only one admin user allowed.' });
     }
 
-    // ✅ Create new user with profile fields
     const user = await User.create({
       email,
       password,
@@ -66,7 +63,6 @@ exports.loginUser = async (req, res) => {
   }
 };
 
-
 // =======================================================
 // R - GET USER PROFILE (GET /users/profile)
 // =======================================================
@@ -83,6 +79,7 @@ exports.getUserProfile = async (req, res) => {
         bio: user.bio,
         shortBio: user.shortBio,
         profilePictureUrl: user.profilePictureUrl,
+        resumeUrl: user.resumeUrl,
         socialLinks: user.socialLinks,
         isAdmin: user.isAdmin,
         createdAt: user.createdAt,
@@ -98,67 +95,83 @@ exports.getUserProfile = async (req, res) => {
 
 exports.getPublicUserProfile = async (req, res) => {
   try {
-    const user = await User.findOne({ isAdmin: true })
-      .select('fullName jobTitle bio shortBio profilePictureUrl socialLinks');
+    const user = await User.findOne({ isAdmin: true }).select(
+      'fullName jobTitle bio shortBio profilePictureUrl resumeUrl socialLinks'
+    );
 
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    res.json(user); 
+    res.json(user);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-
-
-
 // =======================================================
 // U - UPDATE USER PROFILE (PUT /users/profile)
+// Handles both profile picture + resume upload
 // =======================================================
 exports.updateUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found.' });
 
-    // ✅ Parse socialLinks if it's sent as a JSON string
+    // ✅ Parse socialLinks if it's a JSON string
     if (typeof req.body.socialLinks === 'string') {
       try {
         req.body.socialLinks = JSON.parse(req.body.socialLinks);
       } catch (err) {
-        console.error('Invalid socialLinks JSON:', err);
         return res.status(400).json({ message: 'Invalid socialLinks format.' });
       }
     }
 
-    // ✅ Upload new profile picture if provided
-    if (req.file) {
+    // 🔹 Helper function for Cloudinary uploads
+    const uploadToCloudinary = (buffer, folder, resource_type = 'image') => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder, resource_type },
+          (error, result) => {
+            if (result) resolve(result);
+            else reject(error);
+          }
+        );
+        streamifier.createReadStream(buffer).pipe(stream);
+      });
+    };
+
+    // ✅ Handle profile picture upload
+    if (req.files?.profilePicture?.[0]) {
       if (user.profilePictureUrlPublicId) {
         await cloudinary.uploader.destroy(user.profilePictureUrlPublicId);
       }
 
-      const uploadFromBuffer = () => {
-        return new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            {
-              folder: 'user_profiles',
-              transformation: [{ width: 500, height: 500, crop: 'fill' }],
-            },
-            (error, result) => {
-              if (result) resolve(result);
-              else reject(error);
-            }
-          );
-          streamifier.createReadStream(req.file.buffer).pipe(stream);
-        });
-      };
+      const uploadResult = await uploadToCloudinary(
+        req.files.profilePicture[0].buffer,
+        'user_profiles'
+      );
 
-      const uploadResult = await uploadFromBuffer();
-      req.body.profilePictureUrl = uploadResult.secure_url;
-      req.body.profilePictureUrlPublicId = uploadResult.public_id;
+      user.profilePictureUrl = uploadResult.secure_url;
+      user.profilePictureUrlPublicId = uploadResult.public_id;
     }
 
-    // ✅ Update only allowed fields
+    // ✅ Handle resume upload
+    if (req.files?.resume?.[0]) {
+      if (user.resumePublicId) {
+        await cloudinary.uploader.destroy(user.resumePublicId, { resource_type: 'raw' });
+      }
+
+      const uploadResult = await uploadToCloudinary(
+        req.files.resume[0].buffer,
+        'user_resumes',
+        'raw' // 👈 important for PDF/DOC files
+      );
+
+      user.resumeUrl = uploadResult.secure_url;
+      user.resumePublicId = uploadResult.public_id;
+    }
+
+    // ✅ Update allowed text fields
     const fields = [
       'email',
       'password',
@@ -166,9 +179,7 @@ exports.updateUserProfile = async (req, res) => {
       'jobTitle',
       'bio',
       'shortBio',
-      'profilePictureUrl',
-      'profilePictureUrlPublicId',
-      'socialLinks'
+      'socialLinks',
     ];
 
     fields.forEach((field) => {
@@ -189,6 +200,7 @@ exports.updateUserProfile = async (req, res) => {
         bio: updatedUser.bio,
         shortBio: updatedUser.shortBio,
         profilePictureUrl: updatedUser.profilePictureUrl,
+        resumeUrl: updatedUser.resumeUrl,
         socialLinks: updatedUser.socialLinks,
         isAdmin: updatedUser.isAdmin,
         createdAt: updatedUser.createdAt,

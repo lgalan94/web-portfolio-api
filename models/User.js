@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { Schema } = mongoose;
 
 const userSchema = new Schema({
@@ -46,6 +46,14 @@ const userSchema = new Schema({
   profilePictureUrlPublicId: {
     type: String,
     default: null
+  },
+  resumeUrl: {
+  type: String,
+  default: null,
+  },
+  resumeFilePublicId: {
+    type: String,
+    default: null,
   },
   socialLinks: {
     github: {
