@@ -33,7 +33,11 @@ DB.once('open', () => console.log('✅ Connected to MongoDB Cloud Database'));
 // =======================================================
 app.use(helmet()); // Security headers
 app.use(cors({
-  origin: 'https://lito-portfolio-cms.vercel.app', // your frontend URL
+  origin: [
+    'https://lito-portfolio-cms.vercel.app',
+    'https://lito-portfolio.vercel.app',
+    'http://localhost:5173/'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true, // if you are sending cookies/auth headers
 }));
