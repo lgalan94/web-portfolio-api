@@ -27,29 +27,12 @@ const DB = mongoose.connection;
 DB.on('error', (err) => console.error('❌ Database connection error:', err));
 DB.once('open', () => console.log('✅ Connected to MongoDB Cloud Database'));
 
-const allowedOrigins = [
-  "http://localhost:5173",            
-  "https://lito-portfolio.vercel.app",
-  "https://lito-portfolio-cms.vercel.app/"
-];
-
 
 // =======================================================
 // 🛡️ GLOBAL MIDDLEWARE
 // =======================================================
 app.use(helmet()); // Security headers
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
+app.use(cors());
 app.use(express.json({ limit: '10kb' })); // JSON body parser with size limit
 
 // =======================================================
@@ -57,7 +40,7 @@ app.use(express.json({ limit: '10kb' })); // JSON body parser with size limit
 // =======================================================
 const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // Limit 10 auth attempts/hour/IP
+  max: 100, // Limit 10 auth attempts/hour/IP
   message: 'Too many login/register attempts. Please try again in an hour.',
 });
 
