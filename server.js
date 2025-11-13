@@ -32,7 +32,11 @@ DB.once('open', () => console.log('✅ Connected to MongoDB Cloud Database'));
 // 🛡️ GLOBAL MIDDLEWARE
 // =======================================================
 app.use(helmet()); // Security headers
-app.use(cors());
+app.use(cors({
+  origin: 'https://lito-portfolio-cms.vercel.app', // your frontend URL
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true, // if you are sending cookies/auth headers
+}));
 app.use(express.json({ limit: '10kb' })); // JSON body parser with size limit
 
 // =======================================================
