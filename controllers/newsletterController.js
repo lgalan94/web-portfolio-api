@@ -1,93 +1,81 @@
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
 const Newsletter = require("../models/Newsletter");
+const { Resend } = require("resend");
 
-// ===============================
-// 🔹 Configure Nodemailer
-// ===============================
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER, // Gmail address
-    pass: process.env.EMAIL_PASS, // Gmail App Password
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ===============================
-// 🔹 Subscribe Controller
-// ===============================
+// ✅ Subscribe user
 exports.subscribe = async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ message: "Email is required." });
-
   try {
-    // Check if already subscribed
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required." });
+    }
+
+    // Prevent duplicates
     const existing = await Newsletter.findOne({ email });
     if (existing) {
-      return res.status(400).json({ message: "This email is already subscribed." });
+      return res.status(400).json({ success: false, message: "You are already subscribed." });
     }
 
     // Generate unsubscribe token
     const unsubscribeToken = crypto.randomBytes(32).toString("hex");
 
-    // Save subscriber
-    const subscriber = new Newsletter({ email, unsubscribeToken });
-    await subscriber.save();
+    const newSubscriber = new Newsletter({
+      email,
+      unsubscribeToken,
+    });
 
-    // Build unsubscribe URL
+    await newSubscriber.save();
+
+    // Generate unsubscribe URL
     const unsubscribeUrl = `${process.env.FRONTEND_URL}/unsubscribe?token=${unsubscribeToken}`;
 
-    // Send welcome email
-    await transporter.sendMail({
-      from: `"My Portfolio" <${process.env.EMAIL_USER}>`,
+    // ✅ Send confirmation email
+    await resend.emails.send({
+      from: "Lito Galan Jr<litojrgalan@gmail.com>",
       to: email,
       subject: "Welcome to My Newsletter 🎉",
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin:auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-          <h2 style="color: #2563eb;">Welcome to My Newsletter 🎉</h2>
+        <div style="font-family: Arial, sans-serif; color: #333;">
+          <h2>Thanks for Subscribing!</h2>
           <p>Hi there,</p>
-          <p>Thank you for subscribing! You’ll now receive updates about my latest projects, tips, and insights right in your inbox.</p>
-          <p>I’m excited to share my work and journey with you.</p>
-          <hr style="margin: 20px 0;">
-          <p style="font-size: 14px; color: #555;">If you ever wish to unsubscribe, you can do so anytime by clicking below:</p>
-          <p>
-            <a href="${unsubscribeUrl}" style="background-color: #ef4444; color: white; text-decoration: none; padding: 10px 16px; border-radius: 6px;">Unsubscribe</a>
-          </p>
-          <p style="font-size: 13px; color: #999;">Best regards,<br><strong>Your Name</strong></p>
+          <p>You've successfully subscribed to our newsletter. 🎉</p>
+          <p>We’ll occasionally send you updates about new projects, articles, and announcements.</p>
+          <p style="margin-top: 20px;">If you didn’t subscribe, you can <a href="${unsubscribeUrl}" style="color: #d9534f;">unsubscribe here</a>.</p>
+          <hr />
+          <p style="font-size: 12px; color: #888;">Sent with ❤️ from Your Portfolio</p>
         </div>
       `,
     });
 
-    res.status(200).json({ message: "Subscribed successfully and email sent!" });
-  } catch (err) {
-    console.error("❌ Subscription error:", err);
-    res.status(500).json({ message: "Subscription failed. Please try again later." });
+    return res.status(200).json({ success: true, message: "Subscription successful! Please check your email." });
+
+  } catch (error) {
+    console.error("❌ Subscription error:", error);
+    return res.status(500).json({ success: false, message: "Failed to subscribe. Please try again later." });
   }
 };
 
-// ===============================
-// 🔹 Unsubscribe Controller
-// ===============================
+// ✅ Unsubscribe user
 exports.unsubscribe = async (req, res) => {
-  const { token } = req.query;
-  if (!token) return res.status(400).send("Invalid unsubscribe link.");
-
   try {
-    const subscriber = await Newsletter.findOneAndDelete({ unsubscribeToken: token });
+    const { token } = req.query;
+
+    const subscriber = await Newsletter.findOne({ unsubscribeToken: token });
     if (!subscriber) {
-      return res.status(404).send("Invalid or expired unsubscribe link.");
+      return res.status(400).send("<h3>Invalid or expired unsubscribe link.</h3>");
     }
 
-    console.log(`🗑️ Unsubscribed: ${subscriber.email}`);
-    res.send(`
-      <div style="font-family: Arial, sans-serif; max-width: 500px; margin:auto; text-align:center; padding: 40px;">
-        <h2 style="color:#ef4444;">You've been unsubscribed</h2>
-        <p style="color:#555;">We're sad to see you go, ${subscriber.email}.</p>
-        <p style="color:#777;">You can resubscribe anytime from our website.</p>
-      </div>
+    await Newsletter.deleteOne({ _id: subscriber._id });
+
+    return res.send(`
+      <h2>You have been unsubscribed.</h2>
+      <p>We're sad to see you go 😔</p>
     `);
-  } catch (err) {
-    console.error("❌ Unsubscribe error:", err);
-    res.status(500).send("An error occurred while unsubscribing.");
+  } catch (error) {
+    console.error("❌ Unsubscribe error:", error);
+    return res.status(500).send("<h3>Something went wrong. Please try again later.</h3>");
   }
 };
