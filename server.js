@@ -27,11 +27,28 @@ const DB = mongoose.connection;
 DB.on('error', (err) => console.error('❌ Database connection error:', err));
 DB.once('open', () => console.log('✅ Connected to MongoDB Cloud Database'));
 
+const allowedOrigins = [
+  "http://localhost:5173",            
+  "https://lito-portfolio.vercel.app" 
+];
+
+
 // =======================================================
 // 🛡️ GLOBAL MIDDLEWARE
 // =======================================================
 app.use(helmet()); // Security headers
-app.use(cors()); // Allow frontend requests
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '10kb' })); // JSON body parser with size limit
 
 // =======================================================
