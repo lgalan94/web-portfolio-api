@@ -29,7 +29,8 @@ DB.once('open', () => console.log('✅ Connected to MongoDB Cloud Database'));
 
 const allowedOrigins = [
   "http://localhost:5173",            
-  "https://lito-portfolio.vercel.app" 
+  "https://lito-portfolio.vercel.app",
+  "https://lito-portfolio-cms.vercel.app/"
 ];
 
 
