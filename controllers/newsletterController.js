@@ -1,35 +1,29 @@
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const Newsletter = require("../models/Newsletter");
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 exports.subscribe = async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: "Email is required" });
 
   try {
-    // Check if already subscribed
+    // Check existing subscriber
     const existing = await Newsletter.findOne({ email });
     if (existing)
       return res.status(409).json({ message: "You're already subscribed." });
 
-    // Generate unsubscribe token
+    // Create unsubscribe token
     const unsubscribeToken = crypto.randomBytes(32).toString("hex");
-    const subscriber = new Newsletter({ email, unsubscribeToken });
-    await subscriber.save();
+
+    await Newsletter.create({ email, unsubscribeToken });
 
     const unsubscribeLink = `${process.env.FRONTEND_URL}/unsubscribe?token=${unsubscribeToken}`;
 
-    // Send email via Nodemailer
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
+    // Send Email via RESEND
+    await resend.emails.send({
+      from: "newsletter@mail.litoportfolio.space",
       to: email,
       subject: "🎉 Welcome to My Developer Newsletter!",
       html: `
