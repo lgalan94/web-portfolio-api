@@ -37,7 +37,8 @@ app.use(cors({
     'https://lito-portfolio-cms.vercel.app',
     'https://lito-portfolio.vercel.app',
     'http://localhost:5173',
-    'https://www.litoportfolio.space'
+    'https://www.litoportfolio.space',
+    'https://cms.litoportfolio.space'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true, // if you are sending cookies/auth headers
